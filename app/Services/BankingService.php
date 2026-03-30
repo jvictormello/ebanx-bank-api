@@ -6,6 +6,8 @@ use App\Repositories\AccountRepositoryInterface;
 
 class BankingService
 {
+    public const INSUFFICIENT_FUNDS = 'insufficient_funds';
+
     public function __construct(
         private readonly AccountRepositoryInterface $accounts,
     ) {
@@ -41,20 +43,26 @@ class BankingService
     /**
      * @return array{
      *     origin: array{id: string, balance: int}
+     * }|array{
+     *     error: string
      * }|null
      */
     public function withdraw(string $originId, int $amount): ?array
     {
-        $balance = $this->accounts->withdraw($originId, $amount);
+        $result = $this->accounts->withdraw($originId, $amount);
 
-        if ($balance === null) {
+        if ($result === null) {
             return null;
+        }
+
+        if (isset($result['error'])) {
+            return ['error' => $result['error']];
         }
 
         return [
             'origin' => [
                 'id' => $originId,
-                'balance' => $balance,
+                'balance' => $result['balance'],
             ],
         ];
     }
@@ -63,6 +71,8 @@ class BankingService
      * @return array{
      *     origin: array{id: string, balance: int},
      *     destination: array{id: string, balance: int}
+     * }|array{
+     *     error: string
      * }|null
      */
     public function transfer(string $originId, string $destinationId, int $amount): ?array
@@ -71,6 +81,10 @@ class BankingService
 
         if ($balances === null) {
             return null;
+        }
+
+        if (isset($balances['error'])) {
+            return ['error' => $balances['error']];
         }
 
         return [

@@ -8,6 +8,8 @@ use Illuminate\Redis\Connections\Connection;
 class RedisAccountRepository implements AccountRepositoryInterface
 {
     private const ACCOUNTS_HASH_KEY = 'accounts';
+    private const INSUFFICIENT_FUNDS = 'insufficient_funds';
+    private const MISSING_ACCOUNT = 'missing_account';
 
     private const WITHDRAW_LUA = <<<'LUA'
 local hash = KEYS[1]
@@ -15,7 +17,13 @@ local accountId = ARGV[1]
 local amount = tonumber(ARGV[2])
 
 if redis.call('HEXISTS', hash, accountId) == 0 then
-    return nil
+    return 'missing_account'
+end
+
+local balance = tonumber(redis.call('HGET', hash, accountId))
+
+if balance < amount then
+    return 'insufficient_funds'
 end
 
 return redis.call('HINCRBY', hash, accountId, -amount)
@@ -28,10 +36,16 @@ local destinationId = ARGV[2]
 local amount = tonumber(ARGV[3])
 
 if redis.call('HEXISTS', hash, originId) == 0 then
-    return nil
+    return 'missing_account'
 end
 
-local originBalance = redis.call('HINCRBY', hash, originId, -amount)
+local originBalance = tonumber(redis.call('HGET', hash, originId))
+
+if originBalance < amount then
+    return 'insufficient_funds'
+end
+
+originBalance = redis.call('HINCRBY', hash, originId, -amount)
 local destinationBalance = redis.call('HINCRBY', hash, destinationId, amount)
 
 return {originBalance, destinationBalance}
@@ -63,7 +77,7 @@ LUA;
         return (int) $this->connection()->hincrby(self::ACCOUNTS_HASH_KEY, $accountId, $amount);
     }
 
-    public function withdraw(string $accountId, int $amount): ?int
+    public function withdraw(string $accountId, int $amount): ?array
     {
         $result = $this->connection()->eval(
             self::WITHDRAW_LUA,
@@ -73,11 +87,15 @@ LUA;
             (string) $amount
         );
 
-        if ($result === null || $result === false) {
+        if ($result === null || $result === false || $result === self::MISSING_ACCOUNT) {
             return null;
         }
 
-        return (int) $result;
+        if ($result === self::INSUFFICIENT_FUNDS) {
+            return ['error' => self::INSUFFICIENT_FUNDS];
+        }
+
+        return ['balance' => (int) $result];
     }
 
     public function transfer(string $originId, string $destinationId, int $amount): ?array
@@ -91,8 +109,12 @@ LUA;
             (string) $amount
         );
 
-        if ($result === null || $result === false) {
+        if ($result === null || $result === false || $result === self::MISSING_ACCOUNT) {
             return null;
+        }
+
+        if ($result === self::INSUFFICIENT_FUNDS) {
+            return ['error' => self::INSUFFICIENT_FUNDS];
         }
 
         return [

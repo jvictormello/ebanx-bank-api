@@ -50,6 +50,12 @@ class EventController extends Controller
                 ->header('Content-Type', 'text/plain');
         }
 
+        if (($result['error'] ?? null) === BankingService::INSUFFICIENT_FUNDS) {
+            return response()->json([
+                'message' => 'Insufficient funds.',
+            ], Response::HTTP_UNPROCESSABLE_ENTITY);
+        }
+
         return response()->json($result, Response::HTTP_CREATED);
     }
 
@@ -64,6 +70,12 @@ class EventController extends Controller
         if ($result === null) {
             return response('0', Response::HTTP_NOT_FOUND)
                 ->header('Content-Type', 'text/plain');
+        }
+
+        if (($result['error'] ?? null) === BankingService::INSUFFICIENT_FUNDS) {
+            return response()->json([
+                'message' => 'Insufficient funds.',
+            ], Response::HTTP_UNPROCESSABLE_ENTITY);
         }
 
         return response()->json($result, Response::HTTP_CREATED);

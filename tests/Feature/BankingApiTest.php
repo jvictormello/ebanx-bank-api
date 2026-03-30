@@ -104,6 +104,55 @@ class BankingApiTest extends TestCase
             ->assertContent('0');
     }
 
+    public function test_withdraw_returns_422_when_balance_is_insufficient(): void
+    {
+        $this->postJson('/event', [
+            'type' => 'deposit',
+            'destination' => '100',
+            'amount' => 10,
+        ])->assertCreated();
+
+        $this->postJson('/event', [
+            'type' => 'withdraw',
+            'origin' => '100',
+            'amount' => 15,
+        ])->assertStatus(422)
+            ->assertExactJson([
+                'message' => 'Insufficient funds.',
+            ]);
+
+        $this->get('/balance?account_id=100')
+            ->assertOk()
+            ->assertContent('10');
+    }
+
+    public function test_transfer_returns_422_when_balance_is_insufficient(): void
+    {
+        $this->postJson('/event', [
+            'type' => 'deposit',
+            'destination' => '100',
+            'amount' => 10,
+        ])->assertCreated();
+
+        $this->postJson('/event', [
+            'type' => 'transfer',
+            'origin' => '100',
+            'destination' => '300',
+            'amount' => 15,
+        ])->assertStatus(422)
+            ->assertExactJson([
+                'message' => 'Insufficient funds.',
+            ]);
+
+        $this->get('/balance?account_id=100')
+            ->assertOk()
+            ->assertContent('10');
+
+        $this->get('/balance?account_id=300')
+            ->assertNotFound()
+            ->assertContent('0');
+    }
+
     private function configureRedisForTests(): void
     {
         Config::set('database.redis.client', env('REDIS_CLIENT', 'phpredis'));

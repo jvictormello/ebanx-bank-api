@@ -99,6 +99,8 @@ The following endpoints describe the current implemented behavior of the API.
 
 All responses are returned as plain text or JSON depending on the endpoint, as required by the challenge contract.
 
+This project also includes one intentional enhancement beyond the original scope: withdraw and transfer now reject insufficient-funds operations instead of allowing negative balances.
+
 ### Reset state
 
 ```http
@@ -158,6 +160,11 @@ POST /event
 }
 ```
 
+If the origin account exists but does not have enough balance, the API returns:
+
+* `422 Unprocessable Entity`
+* `{"message":"Insufficient funds."}`
+
 #### Transfer
 
 ```json
@@ -168,6 +175,11 @@ POST /event
   "amount": 15
 }
 ```
+
+If the origin account exists but does not have enough balance, the API returns:
+
+* `422 Unprocessable Entity`
+* `{"message":"Insufficient funds."}`
 
 ---
 
@@ -234,6 +246,7 @@ Laravel Feature tests cover the challenge flow through real HTTP requests to the
 * deposit with accumulated balance
 * withdraw for missing and existing origin accounts
 * transfer for missing and existing origin accounts
+* insufficient-funds protection for withdraw and transfer
 
 Feature tests were chosen because they validate the application at the HTTP boundary while still running fast enough for local development and interview discussion.
 
