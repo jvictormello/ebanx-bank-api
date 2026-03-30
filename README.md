@@ -11,7 +11,7 @@ The goal is to model simple account operations (deposit, withdraw, transfer) whi
 * easy to reason about
 * aligned with real-world backend design principles
 
-At the current stage, the project already includes the Docker setup, Laravel application structure, Redis-backed state management, the full end-to-end API flow required by the challenge, and automated feature tests covering the expected behavior.
+This project includes a complete Docker setup, a Laravel-based architecture, Redis-backed state management, a fully implemented API, and automated feature tests covering the expected behavior.
 
 ---
 
@@ -96,6 +96,8 @@ http://localhost:8000
 ## API Contract
 
 The following endpoints describe the current implemented behavior of the API.
+
+All responses are returned as plain text or JSON depending on the endpoint, as required by the challenge contract.
 
 ### Reset state
 
@@ -234,6 +236,22 @@ Laravel Feature tests cover the challenge flow through real HTTP requests to the
 * transfer for missing and existing origin accounts
 
 Feature tests were chosen because they validate the application at the HTTP boundary while still running fast enough for local development and interview discussion.
+
+---
+
+## Running Tests
+
+The recommended way to run the automated tests is inside the Docker application container, where the Redis extension and runtime match the project environment:
+
+```bash
+docker compose exec -T app php artisan test
+```
+
+To run only the banking API feature tests:
+
+```bash
+docker compose exec -T app php artisan test --filter=BankingApiTest
+```
 
 ---
 
