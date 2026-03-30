@@ -11,7 +11,7 @@ The goal is to model simple account operations (deposit, withdraw, transfer) whi
 * easy to reason about
 * aligned with real-world backend design principles
 
-At the current stage, the project focuses on **architecture, contracts, and infrastructure setup**, with the core business logic still being implemented.
+At the current stage, the project already includes the Docker setup, Laravel application structure, and Redis-backed repository implementation. The remaining work is focused on completing the end-to-end API behavior and adding automated tests.
 
 ---
 
@@ -34,9 +34,9 @@ The application follows a clean and minimal layered architecture:
   * Abstracts data access
   * Responsible for interacting with Redis
 
-* **Redis (planned)**
+* **Redis**
 
-  * Will be used as the backing store for account balances
+  * Used as the backing store for account balances
 
 ---
 
@@ -55,9 +55,9 @@ In a real production banking system, a relational database and a ledger-based mo
 
 ---
 
-## Planned Data Model
+## Data Model
 
-Accounts will be stored in Redis using a single hash:
+Accounts are stored in Redis using a single hash:
 
 ```text
 Key: accounts
@@ -211,12 +211,24 @@ The service layer:
 
 ---
 
+## Atomic Operations with Redis Lua Scripts
+
+Lua scripts are used for `withdraw` and `transfer` because both operations require multiple Redis steps to run atomically.
+
+For `withdraw`, the script checks whether the origin account exists before decrementing the balance.
+
+For `transfer`, the script checks the origin account, decrements the origin balance, and increments the destination balance in one atomic operation.
+
+This keeps the implementation simple while avoiding partial state changes in multi-step updates.
+
+---
+
 ## Current Status
 
 * [x] Dockerized environment
 * [x] Application architecture
-* [ ] Redis repository implementation
-* [ ] Atomic operations (Lua scripts)
+* [x] Redis repository implementation
+* [x] Atomic operations (Lua scripts)
 * [ ] End-to-end API behavior
 * [ ] Automated tests
 
