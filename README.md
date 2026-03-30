@@ -2,7 +2,7 @@
 
 ## Overview
 
-This project is a **work-in-progress implementation** of a minimal banking-like HTTP API.
+This project is an implementation of a minimal banking-like HTTP API built for a take-home assignment.
 
 The goal is to model simple account operations (deposit, withdraw, transfer) while keeping the solution:
 
@@ -11,7 +11,7 @@ The goal is to model simple account operations (deposit, withdraw, transfer) whi
 * easy to reason about
 * aligned with real-world backend design principles
 
-At the current stage, the project already includes the Docker setup, Laravel application structure, and Redis-backed repository implementation. The remaining work is focused on completing the end-to-end API behavior and adding automated tests.
+At the current stage, the project already includes the Docker setup, Laravel application structure, Redis-backed state management, and the end-to-end API flow required by the challenge. The main remaining work is adding automated tests.
 
 ---
 
@@ -93,9 +93,9 @@ http://localhost:8000
 
 ---
 
-## Intended API Contract
+## API Contract
 
-The following endpoints describe the **target behavior** of the system once fully implemented.
+The following endpoints describe the current implemented behavior of the API.
 
 ### Reset state
 
@@ -229,7 +229,7 @@ This keeps the implementation simple while avoiding partial state changes in mul
 * [x] Application architecture
 * [x] Redis repository implementation
 * [x] Atomic operations (Lua scripts)
-* [ ] End-to-end API behavior
+* [x] End-to-end API behavior
 * [ ] Automated tests
 
 ---
