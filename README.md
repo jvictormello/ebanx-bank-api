@@ -11,7 +11,7 @@ The goal is to model simple account operations (deposit, withdraw, transfer) whi
 * easy to reason about
 * aligned with real-world backend design principles
 
-At the current stage, the project already includes the Docker setup, Laravel application structure, Redis-backed state management, and the end-to-end API flow required by the challenge. The main remaining work is adding automated tests.
+At the current stage, the project already includes the Docker setup, Laravel application structure, Redis-backed state management, the full end-to-end API flow required by the challenge, and automated feature tests covering the expected behavior.
 
 ---
 
@@ -223,6 +223,20 @@ This keeps the implementation simple while avoiding partial state changes in mul
 
 ---
 
+## Automated Testing
+
+Laravel Feature tests cover the challenge flow through real HTTP requests to the application:
+
+* reset state
+* balance lookup for missing and existing accounts
+* deposit with accumulated balance
+* withdraw for missing and existing origin accounts
+* transfer for missing and existing origin accounts
+
+Feature tests were chosen because they validate the application at the HTTP boundary while still running fast enough for local development and interview discussion.
+
+---
+
 ## Current Status
 
 * [x] Dockerized environment
@@ -230,7 +244,7 @@ This keeps the implementation simple while avoiding partial state changes in mul
 * [x] Redis repository implementation
 * [x] Atomic operations (Lua scripts)
 * [x] End-to-end API behavior
-* [ ] Automated tests
+* [x] Automated tests
 
 ---
 
