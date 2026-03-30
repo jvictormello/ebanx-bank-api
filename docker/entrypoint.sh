@@ -33,10 +33,18 @@ if [ -f .env ]; then
   sed -i 's/^REDIS_HOST=.*/REDIS_HOST=redis/' .env || true
   sed -i 's/^REDIS_PORT=.*/REDIS_PORT=6379/' .env || true
   sed -i 's/^REDIS_CLIENT=.*/REDIS_CLIENT=phpredis/' .env || true
+  sed -i 's/^REDIS_PREFIX=.*/REDIS_PREFIX=/' .env || true
+  sed -i 's/^SESSION_DRIVER=.*/SESSION_DRIVER=file/' .env || true
+  sed -i 's/^CACHE_STORE=.*/CACHE_STORE=file/' .env || true
+  sed -i 's/^QUEUE_CONNECTION=.*/QUEUE_CONNECTION=sync/' .env || true
 
   grep -q '^REDIS_HOST=' .env || echo 'REDIS_HOST=redis' >> .env
   grep -q '^REDIS_PORT=' .env || echo 'REDIS_PORT=6379' >> .env
   grep -q '^REDIS_CLIENT=' .env || echo 'REDIS_CLIENT=phpredis' >> .env
+  grep -q '^REDIS_PREFIX=' .env || echo 'REDIS_PREFIX=' >> .env
+  grep -q '^SESSION_DRIVER=' .env || echo 'SESSION_DRIVER=file' >> .env
+  grep -q '^CACHE_STORE=' .env || echo 'CACHE_STORE=file' >> .env
+  grep -q '^QUEUE_CONNECTION=' .env || echo 'QUEUE_CONNECTION=sync' >> .env
 fi
 
 # Ensure writable Laravel directories
@@ -55,4 +63,6 @@ if [ -f artisan ]; then
   php artisan optimize:clear || true
 fi
 
-exec php artisan serve --host=0.0.0.0 --port=8000
+# Use the PHP built-in server directly to avoid router file permission issues
+# that can happen with `php artisan serve` on mounted volumes.
+exec php -S 0.0.0.0:8000 -t public public/index.php
