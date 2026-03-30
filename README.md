@@ -1,58 +1,293 @@
-<p align="center"><a href="https://laravel.com" target="_blank"><img src="https://raw.githubusercontent.com/laravel/art/master/logo-lockup/5%20SVG/2%20CMYK/1%20Full%20Color/laravel-logolockup-cmyk-red.svg" width="400" alt="Laravel Logo"></a></p>
+# Banking API — Take-Home Assignment
 
-<p align="center">
-<a href="https://github.com/laravel/framework/actions"><img src="https://github.com/laravel/framework/workflows/tests/badge.svg" alt="Build Status"></a>
-<a href="https://packagist.org/packages/laravel/framework"><img src="https://img.shields.io/packagist/dt/laravel/framework" alt="Total Downloads"></a>
-<a href="https://packagist.org/packages/laravel/framework"><img src="https://img.shields.io/packagist/v/laravel/framework" alt="Latest Stable Version"></a>
-<a href="https://packagist.org/packages/laravel/framework"><img src="https://img.shields.io/packagist/l/laravel/framework" alt="License"></a>
-</p>
+## Overview
 
-## About Laravel
+This project is an implementation of a minimal banking-like HTTP API built for a take-home assignment.
 
-Laravel is a web application framework with expressive, elegant syntax. We believe development must be an enjoyable and creative experience to be truly fulfilling. Laravel takes the pain out of development by easing common tasks used in many web projects, such as:
+The goal is to model simple account operations (deposit, withdraw, transfer) while keeping the solution:
 
-- [Simple, fast routing engine](https://laravel.com/docs/routing).
-- [Powerful dependency injection container](https://laravel.com/docs/container).
-- Multiple back-ends for [session](https://laravel.com/docs/session) and [cache](https://laravel.com/docs/cache) storage.
-- Expressive, intuitive [database ORM](https://laravel.com/docs/eloquent).
-- Database agnostic [schema migrations](https://laravel.com/docs/migrations).
-- [Robust background job processing](https://laravel.com/docs/queues).
-- [Real-time event broadcasting](https://laravel.com/docs/broadcasting).
+* simple
+* correct
+* easy to reason about
+* aligned with real-world backend design principles
 
-Laravel is accessible, powerful, and provides tools required for large, robust applications.
+This project includes a complete Docker setup, a Laravel-based architecture, Redis-backed state management, a fully implemented API, and automated feature tests covering the expected behavior.
 
-## Learning Laravel
+---
 
-Laravel has the most extensive and thorough [documentation](https://laravel.com/docs) and video tutorial library of all modern web application frameworks, making it a breeze to get started with the framework.
+## Architecture
 
-In addition, [Laracasts](https://laracasts.com) contains thousands of video tutorials on a range of topics including Laravel, modern PHP, unit testing, and JavaScript. Boost your skills by digging into our comprehensive video library.
+The application follows a clean and minimal layered architecture:
 
-You can also watch bite-sized lessons with real-world projects on [Laravel Learn](https://laravel.com/learn), where you will be guided through building a Laravel application from scratch while learning PHP fundamentals.
+* **Controllers**
 
-## Agentic Development
+  * Handle HTTP requests and responses
+  * Keep logic thin and focused on transport concerns
 
-Laravel's predictable structure and conventions make it ideal for AI coding agents like Claude Code, Cursor, and GitHub Copilot. Install [Laravel Boost](https://laravel.com/docs/ai) to supercharge your AI workflow:
+* **Service Layer**
 
-```bash
-composer require laravel/boost --dev
+  * Encapsulates business logic
+  * Coordinates operations between controllers and persistence
 
-php artisan boost:install
+* **Repository Layer**
+
+  * Abstracts data access
+  * Responsible for interacting with Redis
+
+* **Redis**
+
+  * Used as the backing store for account balances
+
+---
+
+## Why Redis?
+
+This problem models **ephemeral state**, not a fully persistent financial system.
+
+For this reason, Redis was chosen because:
+
+* it provides fast, in-memory data access
+* it simplifies state management across requests
+* it avoids unnecessary complexity from relational modeling
+* it is well-suited for transient data
+
+In a real production banking system, a relational database and a ledger-based model would be required for durability and auditability.
+
+---
+
+## Data Model
+
+Accounts are stored in Redis using a single hash:
+
+```text
+Key: accounts
+
+Fields:
+  100 => 20
+  300 => 15
 ```
 
-Boost provides your agent 15+ tools and skills that help agents build Laravel applications while following best practices.
+* each field represents an account ID
+* each value represents the current balance
 
-## Contributing
+---
 
-Thank you for considering contributing to the Laravel framework! The contribution guide can be found in the [Laravel documentation](https://laravel.com/docs/contributions).
+## Running the Project
 
-## Code of Conduct
+### Requirements
 
-In order to ensure that the Laravel community is welcoming to all, please review and abide by the [Code of Conduct](https://laravel.com/docs/contributions#code-of-conduct).
+* Docker
+* Docker Compose
 
-## Security Vulnerabilities
+### Start the application
 
-If you discover a security vulnerability within Laravel, please send an e-mail to Taylor Otwell via [taylor@laravel.com](mailto:taylor@laravel.com). All security vulnerabilities will be promptly addressed.
+```bash
+docker compose up --build
+```
 
-## License
+The API will be available at:
 
-The Laravel framework is open-sourced software licensed under the [MIT license](https://opensource.org/licenses/MIT).
+```
+http://localhost:8000
+```
+
+---
+
+## API Contract
+
+The following endpoints describe the current implemented behavior of the API.
+
+All responses are returned as plain text or JSON depending on the endpoint, as required by the challenge contract.
+
+### Reset state
+
+```http
+POST /reset
+```
+
+Response:
+
+* `200 OK`
+* body: `OK`
+
+---
+
+### Get balance
+
+```http
+GET /balance?account_id=100
+```
+
+Responses:
+
+* Account not found:
+
+  * `404`
+  * body: `0`
+
+* Account exists:
+
+  * `200`
+  * body: `20`
+
+---
+
+### Event operations
+
+```http
+POST /event
+```
+
+#### Deposit
+
+```json
+{
+  "type": "deposit",
+  "destination": "100",
+  "amount": 10
+}
+```
+
+#### Withdraw
+
+```json
+{
+  "type": "withdraw",
+  "origin": "100",
+  "amount": 5
+}
+```
+
+#### Transfer
+
+```json
+{
+  "type": "transfer",
+  "origin": "100",
+  "destination": "300",
+  "amount": 15
+}
+```
+
+---
+
+## Design Decisions
+
+### 1. Minimal Infrastructure
+
+* No MySQL
+* No Nginx
+* No queues or background workers
+
+The focus is on correctness and clarity, not infrastructure complexity.
+
+---
+
+### 2. Separation of Concerns
+
+* Controllers handle HTTP
+* Services handle business rules
+* Repositories handle data access
+
+---
+
+### 3. Domain-Oriented Repository
+
+The repository exposes domain-level operations such as:
+
+* deposit
+* withdraw
+* transfer
+
+Instead of generic CRUD operations.
+
+---
+
+### 4. Service Layer Responsibility
+
+The service layer:
+
+* orchestrates operations
+* shapes domain responses
+* remains independent from HTTP
+
+---
+
+## Atomic Operations with Redis Lua Scripts
+
+Lua scripts are used for `withdraw` and `transfer` because both operations require multiple Redis steps to run atomically.
+
+For `withdraw`, the script checks whether the origin account exists before decrementing the balance.
+
+For `transfer`, the script checks the origin account, decrements the origin balance, and increments the destination balance in one atomic operation.
+
+This keeps the implementation simple while avoiding partial state changes in multi-step updates.
+
+---
+
+## Automated Testing
+
+Laravel Feature tests cover the challenge flow through real HTTP requests to the application:
+
+* reset state
+* balance lookup for missing and existing accounts
+* deposit with accumulated balance
+* withdraw for missing and existing origin accounts
+* transfer for missing and existing origin accounts
+
+Feature tests were chosen because they validate the application at the HTTP boundary while still running fast enough for local development and interview discussion.
+
+---
+
+## Running Tests
+
+The recommended way to run the automated tests is inside the Docker application container, where the Redis extension and runtime match the project environment:
+
+```bash
+docker compose exec -T app php artisan test
+```
+
+To run only the banking API feature tests:
+
+```bash
+docker compose exec -T app php artisan test --filter=BankingApiTest
+```
+
+---
+
+## Current Status
+
+* [x] Dockerized environment
+* [x] Application architecture
+* [x] Redis repository implementation
+* [x] Atomic operations (Lua scripts)
+* [x] End-to-end API behavior
+* [x] Automated tests
+
+---
+
+## Future Improvements (Production Context)
+
+If this were a real system, I would consider:
+
+* relational database as source of truth
+* ledger-based transaction model
+* audit logging
+* idempotency handling
+* stronger concurrency guarantees
+* authentication and authorization
+* observability (metrics, logs, tracing)
+
+---
+
+## Additional Documentation
+
+For deeper technical insights and trade-offs, see:
+
+- TECHNICAL_DECISIONS.md
+
+---
+
+## Author
+
+João Victor Morais de Mello
