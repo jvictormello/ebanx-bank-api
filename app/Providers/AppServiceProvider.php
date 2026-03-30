@@ -2,23 +2,18 @@
 
 namespace App\Providers;
 
+use App\Repositories\AccountRepositoryInterface;
+use App\Repositories\RedisAccountRepository;
 use Illuminate\Support\ServiceProvider;
 
 class AppServiceProvider extends ServiceProvider
 {
-    /**
-     * Register any application services.
-     */
     public function register(): void
     {
-        //
+        $this->app->bind(AccountRepositoryInterface::class, RedisAccountRepository::class);
     }
 
-    /**
-     * Bootstrap any application services.
-     */
     public function boot(): void
     {
-        //
     }
 }
