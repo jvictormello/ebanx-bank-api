@@ -262,6 +262,14 @@ If this were a real system, I would consider:
 
 ---
 
+## Additional Documentation
+
+For deeper technical insights and trade-offs, see:
+
+- TECHNICAL_DECISIONS.md
+
+---
+
 ## Author
 
 João Victor Morais de Mello
