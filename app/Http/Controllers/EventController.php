@@ -3,6 +3,7 @@
 namespace App\Http\Controllers;
 
 use App\Services\BankingService;
+use App\Support\BankingErrorCodes;
 use Illuminate\Http\JsonResponse;
 use Illuminate\Http\Request;
 use Illuminate\Http\Response as HttpResponse;
@@ -50,7 +51,7 @@ class EventController extends Controller
                 ->header('Content-Type', 'text/plain');
         }
 
-        if (($result['error'] ?? null) === BankingService::INSUFFICIENT_FUNDS) {
+        if (($result['error'] ?? null) === BankingErrorCodes::INSUFFICIENT_FUNDS) {
             return response()->json([
                 'message' => 'Insufficient funds.',
             ], Response::HTTP_UNPROCESSABLE_ENTITY);
@@ -72,7 +73,7 @@ class EventController extends Controller
                 ->header('Content-Type', 'text/plain');
         }
 
-        if (($result['error'] ?? null) === BankingService::INSUFFICIENT_FUNDS) {
+        if (($result['error'] ?? null) === BankingErrorCodes::INSUFFICIENT_FUNDS) {
             return response()->json([
                 'message' => 'Insufficient funds.',
             ], Response::HTTP_UNPROCESSABLE_ENTITY);

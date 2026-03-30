@@ -3,11 +3,10 @@
 namespace App\Services;
 
 use App\Repositories\AccountRepositoryInterface;
+use App\Support\BankingErrorCodes;
 
 class BankingService
 {
-    public const INSUFFICIENT_FUNDS = 'insufficient_funds';
-
     public function __construct(
         private readonly AccountRepositoryInterface $accounts,
     ) {
@@ -56,7 +55,7 @@ class BankingService
         }
 
         if (isset($result['error'])) {
-            return ['error' => $result['error']];
+            return ['error' => BankingErrorCodes::INSUFFICIENT_FUNDS];
         }
 
         return [
@@ -84,7 +83,7 @@ class BankingService
         }
 
         if (isset($balances['error'])) {
-            return ['error' => $balances['error']];
+            return ['error' => BankingErrorCodes::INSUFFICIENT_FUNDS];
         }
 
         return [
