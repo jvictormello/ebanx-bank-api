@@ -30,16 +30,24 @@ Trade-off:
 
 ---
 
-### 2. Single Hash Data Model
+### 2. Redis Hash Data Model
 
-All accounts are stored in a single Redis hash:
+Balances and overdraft limits are stored in two Redis hashes:
 
-accounts => { account_id: balance }
+- accounts => { account_id: balance }
+- overdraft_limits => { account_id: overdraft_limit }
 
 Why:
 - reduces key management complexity
 - allows atomic operations with minimal overhead
 - simple to reason about
+
+Notes:
+- the original challenge only needed `accounts`
+- `overdraft_limits` was added as an exploratory enhancement beyond the original scope
+- when an account has no configured overdraft limit, the effective limit is `0`
+- new accounts receive their overdraft limit during the first deposit
+- existing accounts cannot silently change their overdraft limit through later deposits
 
 Trade-off:
 - not horizontally partitioned
@@ -55,9 +63,11 @@ Why:
 - guarantees atomic execution
 - prevents race conditions
 - avoids partial updates
+- keeps balance and overdraft validation in the data layer
 
 Example problem avoided:
 - two concurrent transfers modifying the same balance
+- race conditions when creating a new account and assigning its initial overdraft limit
 
 Trade-off:
 - introduces Redis-specific logic
@@ -157,13 +167,14 @@ Solution:
 
 Current implementation does NOT handle:
 
-- insufficient funds validation
-- overdraft/credit limits
 - transaction history
 - idempotency
 - authentication
 
-These were intentionally excluded to stay aligned with challenge scope.
+Notes:
+- insufficient funds validation is implemented
+- overdraft support exists in this branch as an exploratory enhancement
+- both are still intentionally lightweight and not meant to model a real banking ledger
 
 ---
 

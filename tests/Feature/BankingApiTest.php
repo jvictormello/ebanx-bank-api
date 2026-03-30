@@ -153,6 +153,100 @@ class BankingApiTest extends TestCase
             ->assertContent('0');
     }
 
+    public function test_withdraw_allows_negative_balance_within_configured_overdraft_limit(): void
+    {
+        $this->postJson('/event', [
+            'type' => 'deposit',
+            'destination' => '100',
+            'amount' => 10,
+            'overdraft_limit' => 20,
+        ])->assertCreated();
+
+        $this->postJson('/event', [
+            'type' => 'withdraw',
+            'origin' => '100',
+            'amount' => 25,
+        ])->assertCreated()
+            ->assertExactJson([
+                'origin' => [
+                    'id' => '100',
+                    'balance' => -15,
+                ],
+            ]);
+
+        $this->get('/balance?account_id=100')
+            ->assertOk()
+            ->assertContent('-15');
+    }
+
+    public function test_transfer_respects_overdraft_limit_and_blocks_when_exceeded(): void
+    {
+        $this->postJson('/event', [
+            'type' => 'deposit',
+            'destination' => '100',
+            'amount' => 10,
+            'overdraft_limit' => 20,
+        ])->assertCreated();
+
+        $this->postJson('/event', [
+            'type' => 'transfer',
+            'origin' => '100',
+            'destination' => '300',
+            'amount' => 25,
+        ])->assertCreated()
+            ->assertExactJson([
+                'origin' => [
+                    'id' => '100',
+                    'balance' => -15,
+                ],
+                'destination' => [
+                    'id' => '300',
+                    'balance' => 25,
+                ],
+            ]);
+
+        $this->postJson('/event', [
+            'type' => 'transfer',
+            'origin' => '100',
+            'destination' => '300',
+            'amount' => 6,
+        ])->assertStatus(422)
+            ->assertExactJson([
+                'message' => 'Insufficient funds.',
+            ]);
+
+        $this->get('/balance?account_id=100')
+            ->assertOk()
+            ->assertContent('-15');
+
+        $this->get('/balance?account_id=300')
+            ->assertOk()
+            ->assertContent('25');
+    }
+
+    public function test_deposit_rejects_overdraft_limit_update_for_existing_account(): void
+    {
+        $this->postJson('/event', [
+            'type' => 'deposit',
+            'destination' => '100',
+            'amount' => 10,
+        ])->assertCreated();
+
+        $this->postJson('/event', [
+            'type' => 'deposit',
+            'destination' => '100',
+            'amount' => 5,
+            'overdraft_limit' => 20,
+        ])->assertStatus(422)
+            ->assertExactJson([
+                'message' => 'Overdraft limit can only be set when creating a new account.',
+            ]);
+
+        $this->get('/balance?account_id=100')
+            ->assertOk()
+            ->assertContent('10');
+    }
+
     private function configureRedisForTests(): void
     {
         Config::set('database.redis.client', env('REDIS_CLIENT', 'phpredis'));

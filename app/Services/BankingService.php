@@ -25,16 +25,22 @@ class BankingService
     /**
      * @return array{
      *     destination: array{id: string, balance: int}
+     * }|array{
+     *     error: string
      * }
      */
-    public function deposit(string $destinationId, int $amount): array
+    public function deposit(string $destinationId, int $amount, ?int $overdraftLimit = null): array
     {
-        $balance = $this->accounts->deposit($destinationId, $amount);
+        $result = $this->accounts->deposit($destinationId, $amount, $overdraftLimit);
+
+        if (isset($result['error'])) {
+            return ['error' => BankingErrorCodes::OVERDRAFT_LIMIT_ONLY_ON_CREATION];
+        }
 
         return [
             'destination' => [
                 'id' => $destinationId,
-                'balance' => $balance,
+                'balance' => $result['balance'],
             ],
         ];
     }

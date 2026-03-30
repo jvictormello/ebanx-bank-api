@@ -8,7 +8,10 @@ interface AccountRepositoryInterface
 
     public function getBalance(string $accountId): ?int;
 
-    public function deposit(string $accountId, int $amount): int;
+    /**
+     * @return array{balance: int}|array{error: string}
+     */
+    public function deposit(string $accountId, int $amount, ?int $overdraftLimit = null): array;
 
     /**
      * @return array{balance: int}|array{error: string}|null

@@ -33,8 +33,17 @@ class EventController extends Controller
     {
         $destinationId = (string) $request->input('destination', '');
         $amount = (int) $request->input('amount', 0);
+        $overdraftLimit = $request->has('overdraft_limit')
+            ? (int) $request->input('overdraft_limit')
+            : null;
 
-        $result = $this->bankingService->deposit($destinationId, $amount);
+        $result = $this->bankingService->deposit($destinationId, $amount, $overdraftLimit);
+
+        if (($result['error'] ?? null) === BankingErrorCodes::OVERDRAFT_LIMIT_ONLY_ON_CREATION) {
+            return response()->json([
+                'message' => 'Overdraft limit can only be set when creating a new account.',
+            ], Response::HTTP_UNPROCESSABLE_ENTITY);
+        }
 
         return response()->json($result, Response::HTTP_CREATED);
     }

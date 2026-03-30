@@ -57,18 +57,22 @@ In a real production banking system, a relational database and a ledger-based mo
 
 ## Data Model
 
-Accounts are stored in Redis using a single hash:
+Balances and overdraft limits are stored in Redis using two hashes:
 
 ```text
 Key: accounts
-
-Fields:
   100 => 20
   300 => 15
+
+Key: overdraft_limits
+  100 => 50
 ```
 
-* each field represents an account ID
-* each value represents the current balance
+* `accounts` stores the current balance for each account
+* `overdraft_limits` stores the allowed negative range for each account
+* if an account has no overdraft limit configured, the default is `0`
+
+The original challenge only required balances. This exploratory branch extends the model with overdraft support beyond the original scope.
 
 ---
 
@@ -99,7 +103,27 @@ The following endpoints describe the current implemented behavior of the API.
 
 All responses are returned as plain text or JSON depending on the endpoint, as required by the challenge contract.
 
-This project also includes one intentional enhancement beyond the original scope: withdraw and transfer now reject insufficient-funds operations instead of allowing negative balances.
+This project also includes intentional enhancements beyond the original scope:
+
+* insufficient-funds protection
+* overdraft support through a configured account limit
+
+### Overdraft Rule
+
+Available funds are calculated as:
+
+```text
+available_funds = balance + overdraft_limit
+```
+
+Withdraw and transfer are allowed only when `available_funds >= amount`.
+
+New accounts receive an overdraft limit when they are first created through `deposit`:
+
+* if `overdraft_limit` is provided in the creation payload, that value is used
+* otherwise the default overdraft limit is `0`
+
+For existing accounts, deposits only increase the balance. They do not update the overdraft limit.
 
 ### Reset state
 
@@ -150,6 +174,22 @@ POST /event
 }
 ```
 
+Optional for new accounts only:
+
+```json
+{
+  "type": "deposit",
+  "destination": "100",
+  "amount": 10,
+  "overdraft_limit": 20
+}
+```
+
+If `overdraft_limit` is sent for an already existing account, the API returns:
+
+* `422 Unprocessable Entity`
+* `{"message":"Overdraft limit can only be set when creating a new account."}`
+
 #### Withdraw
 
 ```json
@@ -160,7 +200,7 @@ POST /event
 }
 ```
 
-If the origin account exists but does not have enough balance, the API returns:
+If the origin account exists but does not have enough available funds, the API returns:
 
 * `422 Unprocessable Entity`
 * `{"message":"Insufficient funds."}`
@@ -176,7 +216,7 @@ If the origin account exists but does not have enough balance, the API returns:
 }
 ```
 
-If the origin account exists but does not have enough balance, the API returns:
+If the origin account exists but does not have enough available funds, the API returns:
 
 * `422 Unprocessable Entity`
 * `{"message":"Insufficient funds."}`
@@ -229,9 +269,9 @@ The service layer:
 
 Lua scripts are used for `withdraw` and `transfer` because both operations require multiple Redis steps to run atomically.
 
-For `withdraw`, the script checks whether the origin account exists before decrementing the balance.
+For `withdraw`, the script checks whether the origin account exists, loads the overdraft limit, validates available funds, and only then decrements the balance.
 
-For `transfer`, the script checks the origin account, decrements the origin balance, and increments the destination balance in one atomic operation.
+For `transfer`, the script checks the origin account, loads the overdraft limit, validates available funds, decrements the origin balance, and increments the destination balance in one atomic operation.
 
 This keeps the implementation simple while avoiding partial state changes in multi-step updates.
 
@@ -247,6 +287,7 @@ Laravel Feature tests cover the challenge flow through real HTTP requests to the
 * withdraw for missing and existing origin accounts
 * transfer for missing and existing origin accounts
 * insufficient-funds protection for withdraw and transfer
+* overdraft-supported withdraw and transfer scenarios
 
 Feature tests were chosen because they validate the application at the HTTP boundary while still running fast enough for local development and interview discussion.
 

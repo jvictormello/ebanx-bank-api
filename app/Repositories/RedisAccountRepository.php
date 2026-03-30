@@ -9,7 +9,9 @@ use Illuminate\Redis\Connections\Connection;
 class RedisAccountRepository implements AccountRepositoryInterface
 {
     private const ACCOUNTS_HASH_KEY = 'accounts';
+    private const OVERDRAFT_LIMITS_HASH_KEY = 'overdraft_limits';
     private const MISSING_ACCOUNT = 'missing_account';
+    private const DEFAULT_OVERDRAFT_LIMIT = 0;
 
     public function __construct(
         private readonly RedisFactory $redis,
@@ -18,7 +20,7 @@ class RedisAccountRepository implements AccountRepositoryInterface
 
     public function reset(): void
     {
-        $this->connection()->del(self::ACCOUNTS_HASH_KEY);
+        $this->connection()->del(self::ACCOUNTS_HASH_KEY, self::OVERDRAFT_LIMITS_HASH_KEY);
     }
 
     public function getBalance(string $accountId): ?int
@@ -32,17 +34,34 @@ class RedisAccountRepository implements AccountRepositoryInterface
         return (int) $balance;
     }
 
-    public function deposit(string $accountId, int $amount): int
+    public function deposit(string $accountId, int $amount, ?int $overdraftLimit = null): array
     {
-        return (int) $this->connection()->hincrby(self::ACCOUNTS_HASH_KEY, $accountId, $amount);
+        $result = $this->connection()->eval(
+            $this->depositScript(),
+            2,
+            self::ACCOUNTS_HASH_KEY,
+            self::OVERDRAFT_LIMITS_HASH_KEY,
+            $accountId,
+            (string) $amount,
+            $overdraftLimit === null ? '0' : '1',
+            (string) ($overdraftLimit ?? 0),
+            (string) self::DEFAULT_OVERDRAFT_LIMIT
+        );
+
+        if ($result === BankingErrorCodes::OVERDRAFT_LIMIT_ONLY_ON_CREATION) {
+            return ['error' => BankingErrorCodes::OVERDRAFT_LIMIT_ONLY_ON_CREATION];
+        }
+
+        return ['balance' => (int) $result];
     }
 
     public function withdraw(string $accountId, int $amount): ?array
     {
         $result = $this->connection()->eval(
             $this->withdrawScript(),
-            1,
+            2,
             self::ACCOUNTS_HASH_KEY,
+            self::OVERDRAFT_LIMITS_HASH_KEY,
             $accountId,
             (string) $amount
         );
@@ -62,8 +81,9 @@ class RedisAccountRepository implements AccountRepositoryInterface
     {
         $result = $this->connection()->eval(
             $this->transferScript(),
-            1,
+            2,
             self::ACCOUNTS_HASH_KEY,
+            self::OVERDRAFT_LIMITS_HASH_KEY,
             $originId,
             $destinationId,
             (string) $amount
@@ -93,6 +113,7 @@ class RedisAccountRepository implements AccountRepositoryInterface
         return sprintf(
             <<<'LUA'
 local hash = KEYS[1]
+local overdraftLimitsHash = KEYS[2]
 local accountId = ARGV[1]
 local amount = tonumber(ARGV[2])
 
@@ -101,8 +122,9 @@ if redis.call('HEXISTS', hash, accountId) == 0 then
 end
 
 local balance = tonumber(redis.call('HGET', hash, accountId))
+local overdraftLimit = tonumber(redis.call('HGET', overdraftLimitsHash, accountId) or '0')
 
-if balance < amount then
+if (balance + overdraftLimit) < amount then
     return '%s'
 end
 
@@ -113,11 +135,47 @@ LUA,
         );
     }
 
+    private function depositScript(): string
+    {
+        return sprintf(
+            <<<'LUA'
+local accountsHash = KEYS[1]
+local overdraftLimitsHash = KEYS[2]
+local accountId = ARGV[1]
+local amount = tonumber(ARGV[2])
+local hasOverdraftLimit = ARGV[3]
+local overdraftLimit = tonumber(ARGV[4])
+local defaultOverdraftLimit = tonumber(ARGV[5])
+
+if redis.call('HEXISTS', accountsHash, accountId) == 1 then
+    if hasOverdraftLimit == '1' then
+        return '%s'
+    end
+
+    return redis.call('HINCRBY', accountsHash, accountId, amount)
+end
+
+local balance = redis.call('HINCRBY', accountsHash, accountId, amount)
+local effectiveOverdraftLimit = defaultOverdraftLimit
+
+if hasOverdraftLimit == '1' then
+    effectiveOverdraftLimit = overdraftLimit
+end
+
+redis.call('HSET', overdraftLimitsHash, accountId, effectiveOverdraftLimit)
+
+return balance
+LUA,
+            BankingErrorCodes::OVERDRAFT_LIMIT_ONLY_ON_CREATION
+        );
+    }
+
     private function transferScript(): string
     {
         return sprintf(
             <<<'LUA'
 local hash = KEYS[1]
+local overdraftLimitsHash = KEYS[2]
 local originId = ARGV[1]
 local destinationId = ARGV[2]
 local amount = tonumber(ARGV[3])
@@ -127,8 +185,9 @@ if redis.call('HEXISTS', hash, originId) == 0 then
 end
 
 local originBalance = tonumber(redis.call('HGET', hash, originId))
+local overdraftLimit = tonumber(redis.call('HGET', overdraftLimitsHash, originId) or '0')
 
-if originBalance < amount then
+if (originBalance + overdraftLimit) < amount then
     return '%s'
 end
 
