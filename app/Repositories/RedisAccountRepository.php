@@ -51,7 +51,7 @@ LUA;
     {
         $balance = $this->connection()->hget(self::ACCOUNTS_HASH_KEY, $accountId);
 
-        if ($balance === null) {
+        if ($balance === null || $balance === false) {
             return null;
         }
 
@@ -73,7 +73,7 @@ LUA;
             (string) $amount
         );
 
-        if ($result === null) {
+        if ($result === null || $result === false) {
             return null;
         }
 
@@ -91,7 +91,7 @@ LUA;
             (string) $amount
         );
 
-        if ($result === null) {
+        if ($result === null || $result === false) {
             return null;
         }
 
