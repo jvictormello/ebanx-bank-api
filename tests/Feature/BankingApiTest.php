@@ -16,12 +16,13 @@ class BankingApiTest extends TestCase
         $this->post('/reset');
     }
 
-    public function test_reset_returns_200_with_empty_body(): void
+    public function test_reset_returns_200_with_ok_plain_text_body(): void
     {
         $response = $this->post('/reset');
 
         $response->assertOk();
-        $this->assertSame('', $response->getContent());
+        $response->assertHeader('Content-Type', 'text/plain; charset=UTF-8');
+        $this->assertSame('OK', $response->getContent());
     }
 
     public function test_banking_api_matches_the_full_challenge_contract(): void

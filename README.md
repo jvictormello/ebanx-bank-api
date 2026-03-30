@@ -106,7 +106,7 @@ POST /reset
 Response:
 
 * `200 OK`
-* empty body
+* body: `OK`
 
 ---
 

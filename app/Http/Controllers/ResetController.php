@@ -16,6 +16,7 @@ class ResetController extends Controller
     {
         $this->bankingService->reset();
 
-        return response('', Response::HTTP_OK);
+        return response('OK', Response::HTTP_OK)
+            ->header('Content-Type', 'text/plain');
     }
 }
